@@ -21,6 +21,8 @@
 
 // SPDX-License-Identifier: MIT
 
+// https://youtu.be/sas02qSFZ74?t=13319
+
 pragma solidity ^0.8.0;
 
 /**
