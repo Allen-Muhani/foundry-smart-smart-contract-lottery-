@@ -192,11 +192,11 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
 
     /**
      * @notice Callback function used by VRF Coordinator.
-     * @param _requestId The ID initially returned by requestRandomWords.
+     * param _requestId The ID initially returned by requestRandomWords.
      * @param randomWords the VRF output expanded to the requested number of words.
      */
     function fulfillRandomWords(
-        uint256 _requestId,
+        uint256,
         uint256[] calldata randomWords
     ) internal override {
         uint256 indexOfWinner = (randomWords[0] % s_players.length) + 1;
