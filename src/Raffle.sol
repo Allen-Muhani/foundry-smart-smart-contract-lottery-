@@ -121,6 +121,9 @@ contract Raffle is VRFConsumerBaseV2Plus {
         emit EnteredRaffle(msg.sender, msg.value);
     }
 
+    /**
+     * Logic to pick a winner using chainlink VRF.
+     */
     function pickWinner() public {
         if (block.timestamp - s_lastTimeStamp < i_interval) {
             revert();
@@ -154,7 +157,6 @@ contract Raffle is VRFConsumerBaseV2Plus {
         uint256 _requestId,
         uint256[] calldata randomWords
     ) internal override {
-
         uint256 indexOfWinner = (randomWords[0] % s_players.length) + 1;
         address payable winner = s_players[indexOfWinner];
         s_recentWinner = winner;
