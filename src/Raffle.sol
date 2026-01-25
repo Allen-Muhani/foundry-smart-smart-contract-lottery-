@@ -41,9 +41,15 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
 
     error Raffle__TransferFailed();
 
-    error Raffle_RaffleNotOppen();
+    error Raffle_RaffleNotOpen();
 
-    /**Type declarations */
+    /**
+     * @dev Represents the current state of the Raffle contract.
+     *
+     * States:
+     *  - OPEN: The raffle is accepting entries from participants.
+     *  - CALCULATIG: The raffle is picking/calculating a winner.
+     */
     enum RaffleState {
         OPEN,
         CALCULATING
@@ -63,21 +69,45 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
      */
     address payable[] private s_players;
 
+    /**
+     * @dev list of recent winners.
+     */
+    address payable s_recentWinner;
+
+    /**
+     * @dev Time interval between raffle opening/initiation to raffle end/winner picking/calculation.
+     */
     uint256 private immutable i_interval;
 
+    /**
+     * @dev The last the raffle was opened.
+     */
     uint256 private s_lastTimeStamp;
 
+    /**
+     * @dev the chainlink subscription ID for VRF.
+     */
     uint256 private immutable i_subscriptionId;
 
+    /**
+     * @dev the chainlink VRF gass fee lane.
+     */
     bytes32 private immutable i_Key_Hash_Gas_Lane;
 
+    /**
+     * @dev
+     */
     uint32 private constant NUM_WORDS = 1;
 
+    /**
+     * @dev Chainlink VRF gass limit.
+     */
     uint32 private constant CALL_BACK_GASS_LIMIT = 200000;
 
+    /**
+     * @dev
+     */
     uint16 private constant REQUEST_CONFIRMATIONS = 3;
-
-    address payable s_recentWinner;
 
     /**Events */
 
@@ -153,11 +183,14 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         return (upkeepNeeded, "0x0");
     }
 
+    /**
+     * Called by chainlink oracles to perfrom upkeep.
+     */
     function performUpkeep(bytes calldata) external override {
         (bool upkeepNeeded, ) = checkUpkeep("");
 
         if (!upkeepNeeded) {
-            revert Raffle_RaffleNotOppen();
+            revert Raffle_RaffleNotOpen();
         }
 
         pickWinner();
@@ -168,7 +201,7 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
      */
     function pickWinner() public {
         if (block.timestamp - s_lastTimeStamp < i_interval) {
-            revert Raffle_RaffleNotOppen();
+            revert Raffle_RaffleNotOpen();
         }
 
         s_raffleState = RaffleState.CALCULATING;
@@ -207,12 +240,11 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         s_players = new address payable[](0);
         s_lastTimeStamp = block.timestamp;
 
+        emit WinnerPickeed(winner);
         (bool success, ) = winner.call{value: address(this).balance}("");
         if (!success) {
             revert Raffle__TransferFailed();
         }
-
-        emit WinnerPickeed(winner);
     }
 
     /**Getters functions */
