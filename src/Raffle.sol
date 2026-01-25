@@ -27,6 +27,7 @@ pragma solidity ^0.8.0;
 
 import {VRFConsumerBaseV2Plus} from "chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
+import {AutomationCompatibleInterface} from "chainlink-brownie-contracts/contracts/src/v0.8/automation/AutomationCompatible.sol";
 
 /**
  * @title A sample Raffle contract.
@@ -34,11 +35,13 @@ import {VRFV2PlusClient} from "chainlink-brownie-contracts/contracts/src/v0.8/vr
  * @notice This contrac is for creating sample raffle.
  * @dev Implements Chainlink VRFv2
  */
-contract Raffle is VRFConsumerBaseV2Plus {
+contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     /** Errors */
     error Raffle__NotEnoughETHSSent(uint256 amountSent, uint256 requiredAmount);
 
     error Raffle__TransferFailed();
+
+    error Raffle_RaffleNotOppen();
 
     /**Type declarations */
     enum RaffleState {
@@ -46,7 +49,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
         CALCULATING
     }
 
-    RaffleState private raffleState = RaffleState.OPEN;
+    RaffleState private s_raffleState = RaffleState.OPEN;
 
     /** State variables */
 
@@ -122,12 +125,53 @@ contract Raffle is VRFConsumerBaseV2Plus {
     }
 
     /**
+     * @dev this funtion is used by the chainlink nodes to check if the
+     *  smartcontract needs to perfrom upkeep.
+     *
+     * The following should be true for this to return true.
+     * 1. The time interval passed btwn raffl runs.
+     * 2. The raffle is in the OPEN state.
+     * 3. The contract has eth and players.
+     * 4. (Implicit) the subscription is funded with Link.
+     * @return upkeepNeeded true if upkeep is needed.
+     * @return
+     */
+    function checkUpkeep(
+        bytes memory
+    ) public view override returns (bool upkeepNeeded, bytes memory) {
+        bool playersPresent = s_players.length > 1;
+        bool raffleOpen = s_raffleState == RaffleState.OPEN;
+        bool timeHasPassed = (block.timestamp - s_lastTimeStamp < i_interval);
+        bool hasBalance = address(this).balance > 0;
+
+        upkeepNeeded =
+            playersPresent &&
+            raffleOpen &&
+            timeHasPassed &&
+            hasBalance;
+
+        return (upkeepNeeded, "0x0");
+    }
+
+    function performUpkeep(bytes calldata) external override {
+        (bool upkeepNeeded, ) = checkUpkeep("");
+
+        if (!upkeepNeeded) {
+            revert Raffle_RaffleNotOppen();
+        }
+
+        pickWinner();
+    }
+
+    /**
      * Logic to pick a winner using chainlink VRF.
      */
     function pickWinner() public {
         if (block.timestamp - s_lastTimeStamp < i_interval) {
-            revert();
+            revert Raffle_RaffleNotOppen();
         }
+
+        s_raffleState = RaffleState.CALCULATING;
 
         s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
@@ -144,8 +188,6 @@ contract Raffle is VRFConsumerBaseV2Plus {
                 )
             })
         );
-
-        raffleState = RaffleState.CALCULATING;
     }
 
     /**
@@ -160,14 +202,17 @@ contract Raffle is VRFConsumerBaseV2Plus {
         uint256 indexOfWinner = (randomWords[0] % s_players.length) + 1;
         address payable winner = s_players[indexOfWinner];
         s_recentWinner = winner;
+
+        s_raffleState = RaffleState.OPEN;
         s_players = new address payable[](0);
         s_lastTimeStamp = block.timestamp;
-        emit WinnerPickeed(winner);
 
         (bool success, ) = winner.call{value: address(this).balance}("");
         if (!success) {
             revert Raffle__TransferFailed();
         }
+
+        emit WinnerPickeed(winner);
     }
 
     /**Getters functions */
