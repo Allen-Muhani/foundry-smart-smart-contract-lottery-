@@ -20,8 +20,7 @@
 // view & pure functions
 
 // SPDX-License-Identifier: MIT
-
-// https://youtu.be/sas02qSFZ74?t=15525
+https://youtu.be/sas02qSFZ74?t=17919
 
 pragma solidity ^0.8.0;
 
@@ -42,6 +41,12 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     error Raffle__TransferFailed();
 
     error Raffle_RaffleNotOpen();
+
+    error Raffle_UpkeepNotNeeded(
+        uint256 contractBalance,
+        uint256 numberOfPlayers,
+        uint256 rafflestate
+    );
 
     /**
      * @dev Represents the current state of the Raffle contract.
@@ -120,10 +125,14 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
 
     event WinnerPickeed(address winner);
 
-    /*
+    /**
      * @dev Constructor to initialize the raffle contract.
      * @param entranceFee The entrance fee for the raffle in wei.
      * @param interval The time interval for the raffle.
+     * @param subscriptionId chainlink VRF subscription id.
+     * @param vrfCoordinator VRF cordinator address for the chain
+     *   on which theis smart contract is deployed.
+     * @param keyHash the key has of the gass fee lane for chainlink VRF.
      */
     constructor(
         uint256 entranceFee,
@@ -190,7 +199,11 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         (bool upkeepNeeded, ) = checkUpkeep("");
 
         if (!upkeepNeeded) {
-            revert Raffle_RaffleNotOpen();
+            revert Raffle_UpkeepNotNeeded(
+                address(this).balance,
+                s_players.length,
+                uint256(s_raffleState)
+            );
         }
 
         pickWinner();
@@ -249,6 +262,9 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
 
     /**Getters functions */
 
+    /**
+     * Gets the entrance fee.
+     */
     function getEntranceFee() external view returns (uint256) {
         return i_entranceFee;
     }
