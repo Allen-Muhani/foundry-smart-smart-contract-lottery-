@@ -20,7 +20,7 @@
 // view & pure functions
 
 // SPDX-License-Identifier: MIT
-// https://youtu.be/sas02qSFZ74?t=19112
+// https://youtu.be/sas02qSFZ74?t=21972
 
 pragma solidity ^0.8.0;
 
@@ -48,6 +48,7 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         uint256 numberOfPlayers,
         uint256 rafflestate
     );
+
 
     /**
      * @dev Represents the current state of the Raffle contract.
@@ -125,6 +126,8 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     event EnteredRaffle(address indexed player, uint256 entranceFee);
 
     event WinnerPickeed(address winner);
+
+    event RequestedRaffleWinner(uint256 indexed requestId);
 
     /**
      * @dev Constructor to initialize the raffle contract.
@@ -224,7 +227,7 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
 
         s_raffleState = RaffleState.CALCULATING;
         
-        s_vrfCoordinator.requestRandomWords(
+        uint256 requestedId = s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
                 keyHash: i_Key_Hash_Gas_Lane,
                 subId: i_subscriptionId,
@@ -239,6 +242,8 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
                 )
             })
         );
+
+        emit RequestedRaffleWinner(requestedId);
     }
 
     /**
